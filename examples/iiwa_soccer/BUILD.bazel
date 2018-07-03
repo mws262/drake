@@ -1,0 +1,261 @@
+# -*- python -*-
+
+load(
+    "//tools:drake.bzl",
+    "drake_cc_library",
+    "drake_cc_binary",
+    "drake_cc_googletest",
+)
+load(
+    "//tools/skylark:drake_py.bzl",
+    "drake_py_unittest",
+)
+load("//tools/install:install_data.bzl", "install", "install_data")
+load("//tools/lint:lint.bzl", "add_lint_tests")
+load(
+    "//tools/skylark:drake_py.bzl",
+    "drake_py_test",
+)
+
+package(
+    default_visibility = [":__subpackages__"],
+)
+
+drake_cc_library(
+    name = "spline_trajectory",
+    srcs = ["spline_trajectory.cc"],
+    hdrs = ["spline_trajectory.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//common/trajectories",
+        "//lcm",
+        "//multibody/rigid_body_plant:frame_visualizer",
+        "//systems/framework:leaf_system",
+        "@lcmtypes_bot2_core",
+    ],
+)
+
+drake_cc_library(
+    name = "trajectory_evaluator",
+    srcs = ["trajectory_evaluator.cc"],
+    hdrs = ["trajectory_evaluator.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":spline_trajectory",
+        "//common/trajectories",
+        "//lcm",
+        "//multibody/rigid_body_plant:frame_visualizer",
+        "//systems/framework:leaf_system",
+        "@lcmtypes_bot2_core",
+    ],
+)
+
+drake_cc_library(
+    name = "trajectory_evaluator_vector",
+    srcs = ["trajectory_evaluator_vector.cc"],
+    hdrs = ["trajectory_evaluator_vector.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":spline_trajectory",
+        "//common/trajectories",
+        "//lcm",
+        "//multibody/rigid_body_plant:frame_visualizer",
+        "//systems/framework:leaf_system",
+        "@lcmtypes_bot2_core",
+    ],
+)
+
+drake_cc_library(
+    name = "target_shifter",
+    srcs = ["target_shifter.cc"],
+    hdrs = [
+        "target_shifter.h",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//multibody:rigid_body_tree",
+        "//systems/framework:leaf_system",
+    ],
+)
+
+drake_cc_library(
+    name = "impedance_controller",
+    srcs = ["impedance_controller.cc"],
+    hdrs = ["impedance_controller.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//common:default_scalars",
+        "//lcm",
+        "//lcmtypes:iiwa",
+        "//multibody:kinematics_cache",
+        "//multibody:rigid_body_tree",
+        "//multibody/rigid_body_plant:frame_visualizer",
+        "//systems/framework",
+        "//systems/lcm",
+        "@lcmtypes_bot2_core",
+        "@lcmtypes_robotlocomotion",
+    ],
+)
+
+drake_cc_library(
+    name = "time_based_source_switcher",
+    srcs = ["time_based_source_switcher.cc"],
+    hdrs = ["time_based_source_switcher.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//systems/framework",
+    ],
+)
+
+drake_cc_library(
+    name = "source_switcher",
+    srcs = ["source_switcher.cc"],
+    hdrs = ["source_switcher.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//systems/framework",
+    ],
+)
+
+drake_cc_library(
+    name = "fsm_system",
+    srcs = ["fsm_system.cc"],
+    hdrs = ["fsm_system.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":soccer_common",
+        "//multibody:inverse_kinematics",
+        "//multibody:rigid_body_constraint",
+        "//multibody/rigid_body_plant:contact_results",
+        "//systems/framework",
+    ],
+)
+
+drake_cc_library(
+    name = "soccer_common",
+    #    srcs = ["fsm_system.cc"],
+    hdrs = ["soccer_common.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":nonconstant_abstract_source",
+        ":nonconstant_vector_source",
+        ":source_switcher",
+        "//multibody:rigid_body_tree",
+        "//systems/framework",
+    ],
+)
+
+drake_cc_library(
+    name = "nonconstant_vector_source",
+    srcs = ["nonconstant_vector_source.cc"],
+    hdrs = ["nonconstant_vector_source.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//systems/framework",
+        "//systems/primitives",
+    ],
+)
+
+drake_cc_library(
+    name = "nonconstant_abstract_source",
+    srcs = ["nonconstant_abstract_source.cc"],
+    hdrs = ["nonconstant_abstract_source.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//systems/framework",
+        "//systems/primitives",
+    ],
+)
+
+drake_cc_binary(
+    name = "junction_box",
+    srcs = ["junction_box.cc"],
+    #hdrs = ["source_switcher.h"],
+    data = [
+        ":models",
+        "//examples/contact_model:bowling_ball",
+    ],
+    deps = [
+        ":fsm_system",
+        ":impedance_controller",
+        ":nonconstant_abstract_source",
+        ":nonconstant_vector_source",
+        ":soccer_common",
+        ":source_switcher",
+        ":spline_trajectory",
+        ":target_shifter",
+        ":trajectory_evaluator",
+        "//manipulation/util:sim_diagram_builder",
+        "//multibody:rigid_body_tree",
+        "//multibody:rigid_body_tree_construction",
+        "//multibody/parsers",
+        "//multibody/rigid_body_plant",
+        "//systems/analysis",
+        "//systems/controllers:inverse_dynamics_controller",
+        "//systems/framework",
+        "//systems/primitives",
+    ],
+)
+
+drake_cc_binary(
+    name = "traj_opt_test",
+    srcs = ["traj_opt_test.cc"],
+    copts = [
+        "-Wno-error=unused-variable",
+    ],
+    #hdrs = ["source_switcher.h"],
+    data = [
+        ":models",
+        "//examples/contact_model:bowling_ball",
+    ],
+    deps = [
+        ":fsm_system",
+        ":impedance_controller",
+        ":nonconstant_abstract_source",
+        ":nonconstant_vector_source",
+        ":soccer_common",
+        ":source_switcher",
+        ":spline_trajectory",
+        ":target_shifter",
+        ":trajectory_evaluator",
+        "//manipulation/util:sim_diagram_builder",
+        "//multibody:rigid_body_tree",
+        "//multibody:rigid_body_tree_construction",
+        "//multibody/parsers",
+        "//multibody/rigid_body_plant",
+        "//systems/analysis",
+        "//systems/controllers:inverse_dynamics_controller",
+        "//systems/framework",
+        "//systems/primitives",
+        "//systems/trajectory_optimization",
+    ],
+)
+
+drake_cc_binary(
+    name = "kuka_simulation",
+    srcs = ["kuka_simulation.cc"],
+    add_test_rule = 1,
+    data = [
+        ":models",
+        "//examples/contact_model:bowling_ball",
+    ],
+    deps = [
+        ":impedance_controller",
+        ":spline_trajectory",
+        ":target_shifter",
+        ":time_based_source_switcher",
+        ":trajectory_evaluator_vector",
+        "//common:text_logging_gflags",
+        "//examples/kuka_iiwa_arm:iiwa_common",
+        "//examples/kuka_iiwa_arm:iiwa_lcm",
+        "//lcm",
+        "//manipulation/util:sim_diagram_builder",
+        "//manipulation/util:world_sim_tree_builder",
+        "//multibody:rigid_body_tree_construction",
+        "//multibody/rigid_body_plant:frame_visualizer",
+        "//systems/analysis",
+        "//systems/controllers:inverse_dynamics_controller",
+        "//systems/primitives",
+        "@lcmtypes_bot2_core",
+    ],
+)
