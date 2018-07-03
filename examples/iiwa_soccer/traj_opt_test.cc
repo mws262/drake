@@ -108,10 +108,15 @@ void DoTrajTest() {
   dircol.AddConstraintToAllKnotPoints(-kTorqueLimit <= u(0));
   dircol.AddConstraintToAllKnotPoints(u(0) <= kTorqueLimit);
 
-  Eigen::VectorXd x0(14);
-  x0.setZero();
+
+  VectorXd zero_conf = plant_ptr->get_rigid_body_tree().getZeroConfiguration();
+  zero_conf.conservativeResize(14);
+  Eigen::VectorXd x0 = zero_conf;
   Eigen::VectorXd xf(14);
   xf.setZero();
+  xf[0] = 0.5;
+  xf[1] = -0.1;
+  xf[2] = 0.1;
 
   dircol.AddLinearConstraint(dircol.initial_state() == x0);
   dircol.AddLinearConstraint(dircol.final_state() == xf);
@@ -127,17 +132,17 @@ void DoTrajTest() {
   dircol.SetInitialTrajectory(PiecewisePolynomialType(), traj_init_x);
   solvers::SolutionResult result = dircol.Solve();
 
-//  const trajectories::PiecewisePolynomial<double> pp_xtraj =
-//      dircol.ReconstructStateTrajectory();
-//  auto source = builder.AddSystem<systems::TrajectorySource>(pp_xtraj);
+  const trajectories::PiecewisePolynomial<double> pp_xtraj =
+      dircol.ReconstructStateTrajectory();
+  auto source_x = builder.AddSystem<systems::TrajectorySource>(pp_xtraj);
   const trajectories::PiecewisePolynomial<double> pp_torque =
     dircol.ReconstructInputTrajectory();
-  auto source = builder.AddSystem<systems::TrajectorySource>(pp_torque);
+  auto source_tau = builder.AddSystem<systems::TrajectorySource>(pp_torque);
 
   visualizer->set_publish_period(1.0 / 60.0);
 
-  builder.Connect(source->get_output_port(), plant_ptr->get_input_port(0));
-  //builder.Connect(source->get_output_port(), visualizer->get_input_port(0));
+  builder.Connect(source_tau->get_output_port(), plant_ptr->get_input_port(0));
+  builder.Connect(source_x->get_output_port(), visualizer->get_input_port(0));
   auto diagram = builder.Build();
 
   systems::Simulator<double> simulator(*diagram);
@@ -151,7 +156,6 @@ void DoTrajTest() {
   simulator.Initialize();
   simulator.StepTo(pp_torque.end_time());
 }
-
 
 }
 }
