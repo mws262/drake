@@ -99,9 +99,9 @@ std::unique_ptr<Diagram<double>> make_junction_box() {
 
   // Gains in cartesian-land.
   Vector3<double> k_p;
-  k_p << 20, 20, 20;
+  k_p << 500, 500, 500;
   Vector3<double> k_d;
-  k_d << 15, 15, 15;
+  k_d << 100, 100, 100;
 
   // Joint gains.
   VectorX<double> iiwa_kp(7);

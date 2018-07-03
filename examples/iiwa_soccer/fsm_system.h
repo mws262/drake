@@ -36,7 +36,7 @@ class FSM_System : public LeafSystem<double> {
     ABOVE_BALL_2,
 
     // Iffy below
-    ABOVE_HOVER,
+        ABOVE_HOVER,
     TOP_1,
     TOP_1_PUSHING,
 
@@ -85,13 +85,15 @@ class FSM_System : public LeafSystem<double> {
       unsigned long id1 = contact_results->get_contact_info(i).get_element_id_1();
       unsigned long id2 = contact_results->get_contact_info(i).get_element_id_2();
 
-      std::string body1 = collision_table_.at(id1);
-      std::string body2 = collision_table_.at(id2);
+      if (collision_table_.find(id1) != collision_table_.end() && collision_table_.find(id2) != collision_table_.end()) {
+        std::string body1 = collision_table_.at(id1);
+        std::string body2 = collision_table_.at(id2);
 
-      if (body1 != "world" && body2 != "world") {
-        if (body1 == "ball" || body2 == "ball") {
-          arm_contacts_ball = true;
+        if (body1 != "world" && body2 != "world") {
+          if (body1 == "ball" || body2 == "ball") {
+            arm_contacts_ball = true;
 
+          }
         }
       }
     }
