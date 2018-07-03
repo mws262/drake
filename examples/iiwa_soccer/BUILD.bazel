@@ -6,16 +6,16 @@ load(
     "drake_cc_binary",
     "drake_cc_googletest",
 )
-load(
-    "//tools/skylark:drake_py.bzl",
-    "drake_py_unittest",
-)
-load("//tools/install:install_data.bzl", "install", "install_data")
-load("//tools/lint:lint.bzl", "add_lint_tests")
-load(
-    "//tools/skylark:drake_py.bzl",
-    "drake_py_test",
-)
+#load(
+#    "//tools/skylark:drake_py.bzl",
+#    "drake_py_unittest",
+#)
+#load("//tools/install:install_data.bzl", "install", "install_data")
+#load("//tools/lint:lint.bzl", "add_lint_tests")
+#load(
+#    "//tools/skylark:drake_py.bzl",
+#    "drake_py_test",
+#)
 
 package(
     default_visibility = [":__subpackages__"],
@@ -219,6 +219,7 @@ drake_cc_binary(
         ":target_shifter",
         ":trajectory_evaluator",
         "//manipulation/util:sim_diagram_builder",
+        "//multibody:rigid_body_constraint",
         "//multibody:rigid_body_tree",
         "//multibody:rigid_body_tree_construction",
         "//multibody/parsers",
