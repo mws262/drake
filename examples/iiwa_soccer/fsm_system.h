@@ -98,10 +98,7 @@ class FSM_System : public LeafSystem<double> {
 
     //drake::log()->info(arm_contacts_ball);
 
-    double xdist = ee_pos->GetAtIndex(0) - ball_state->GetAtIndex(0);
-    double ydist = ee_pos->GetAtIndex(1) - ball_state->GetAtIndex(1);
-    double zdist = ee_pos->GetAtIndex(2) - ball_state->GetAtIndex(2);
-    double sq_dist_from_ball = xdist*xdist + ydist*ydist + zdist*zdist;
+    double sq_dist_from-ball = (ee_pos->CopyToVector() - ball_state->CopyToVector()).squaredNorm();
 
     switch (current_state) {
       case IDLE: // Immediately transition to CWISE.
