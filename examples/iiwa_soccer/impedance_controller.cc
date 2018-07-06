@@ -23,24 +23,14 @@ using math::RotationMatrix;
 using Eigen::Vector3d;
 
 
-/**
- * Returns the input port for the estimated state.
- */
 const InputPortDescriptor<double>& ImpedanceController::get_input_port_estimated_state() const {
   return this->get_input_port(0);
 }
 
-/**
- * Returns the input port for the desired state.
- */
 const InputPortDescriptor<double>& ImpedanceController::get_input_port_cartesian_target() const {
   return this->get_input_port(1);
 }
 
-/**
- * Returns the output port for computed control.
- * @return
- */
 const OutputPort<double>& ImpedanceController::get_output_port_control() const {
   return this->get_output_port(0);
 }
@@ -52,6 +42,9 @@ const OutputPort<double>& ImpedanceController::get_output_port_hand_pos() const 
 void ImpedanceController::DoCalcTimeDerivatives(const Context<double>& context, ContinuousState<double>* derivatives) const {
   //context.get_continuous_state_vector();
   //const systems::BasicVector<double>* target_vector = this->EvalVectorInput(context, 1);
+  // TODO(mws): Check the derivative calculation below; this function should be
+  // computing the derivative of the controller state stored in the context,
+  // which it does not appear to be doing.
   derivatives->get_mutable_vector()[0] = (x_target[0] - hand_pos[0]);
   derivatives->get_mutable_vector()[1] = (x_target[1] - hand_pos[1]);
   derivatives->get_mutable_vector()[2] = (x_target[2] - hand_pos[2]);
@@ -136,7 +129,7 @@ void ImpedanceController::DoControlCalc(const Context<double>& context, BasicVec
 }
 
 void ImpedanceController::DoPublish(const Context<double>& context, const std::vector<const PublishEvent<double>*>& events) const {
-  if (draw_ && (0.05 - std::fmod(context.get_time(), 0.05)) < 0.001) {
+  if (draw_status_ && (0.05 - std::fmod(context.get_time(), 0.05)) < 0.001) {
     // Draws the location of the controller's target.
     drake::lcmt_viewer_draw frame_msg{};
     frame_msg.timestamp = 0;

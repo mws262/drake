@@ -28,6 +28,7 @@ using Eigen::VectorXi;
 
 class FSM_System : public LeafSystem<double> {
 
+  // TODO(mws): document what these states correspond to.
   enum states {
     IDLE,
     CWISE_FROM_BALL,
@@ -48,20 +49,33 @@ class FSM_System : public LeafSystem<double> {
   };
 
  public:
+
   FSM_System(switches control_togglers, std::map<unsigned long, std::string> collision_table) : switches_(control_togglers), collision_table_(collision_table), start_vec(0,0,1.) {
-    arm_state_in_id = this->DeclareVectorInputPort(BasicVector<double>(14)).get_index();
-    ball_state_in_id = this->DeclareVectorInputPort(BasicVector<double>(13)).get_index();
-    ee_pos_in_id = this->DeclareVectorInputPort(BasicVector<double>(3)).get_index();
+    const int kuka_arm_state_dim = 14;  // 7 DoF x 2.
+    const int ball_state_dim = 13;      // 7 configuration, 6 velocity.
+    const int three_d = 3;
+    const double control_freq = 100;    // 100Hz
+
+    arm_state_in_id = this->DeclareVectorInputPort(BasicVector<double>(kuka_arm_state_dim)).get_index();
+    ball_state_in_id = this->DeclareVectorInputPort(BasicVector<double>(ball_state_dim)).get_index();
+    ee_pos_in_id = this->DeclareVectorInputPort(BasicVector<double>(three_d)).get_index();
+
     contact_results_in_id = this->DeclareAbstractInputPort().get_index(); //ContactResults<double>()
 
-    this->DeclarePeriodicDiscreteUpdate(0.01);
+    this->DeclarePeriodicDiscreteUpdate(1.0/control_freq);
+
+    // TODO(mws): comment what the discrete state is used for.
     this->DeclareDiscreteState(1);  // This does nothing besides a
 
   }
 
  private:
   switches switches_;
+
+  // TODO(mws): The state of the system should remain separate from the system-
+  // it should instead live in the Context. This is bad juju- expect bugs.
   mutable states current_state = states::TRAJ1;
+  
   int arm_state_in_id;
   int ball_state_in_id;
   int ee_pos_in_id;
@@ -76,6 +90,7 @@ class FSM_System : public LeafSystem<double> {
       const Context<double>& context,
       const std::vector<const DiscreteUpdateEvent<double>*>& events,
       DiscreteValues<double>* discrete_state) const override {
+    // TODO(mws): Document the purpose of ball_adj (and perhaps choose a more descriptive variable name).
     Vector3d ball_adj(0.2,0,0);
     //const BasicVector<double>* arm_state = this->EvalVectorInput(context, arm_state_in_id);
     const BasicVector<double>* ball_state = this->EvalVectorInput(context, ball_state_in_id);
@@ -83,7 +98,7 @@ class FSM_System : public LeafSystem<double> {
     const ContactResults<double>* contact_results = this->EvalInputValue<ContactResults<double>>(context, contact_results_in_id);
 
 
-
+    // Indicate that the manipulator arm is not touching the ball (unless otherwise established).
     bool arm_contacts_ball = false;
     // Check which contacts are active.
     for (int i = 0; i < contact_results->get_num_contacts(); i++) {
@@ -95,10 +110,8 @@ class FSM_System : public LeafSystem<double> {
         std::string body2 = collision_table_.at(id2);
 
         if (body1 != "world" && body2 != "world") {
-          if (body1 == "ball" || body2 == "ball") {
+          if (body1 == "ball" || body2 == "ball")
             arm_contacts_ball = true;
-
-          }
         }
       }
     }
@@ -111,11 +124,12 @@ class FSM_System : public LeafSystem<double> {
     ee_pos_vec3d[2] = ee_pos->GetAtIndex(2);
 
 
-    double xdist = ee_pos->GetAtIndex(0) - ball_state->GetAtIndex(0);
-    double ydist = ee_pos->GetAtIndex(1) - ball_state->GetAtIndex(1);
-    double zdist = ee_pos->GetAtIndex(2) - ball_state->GetAtIndex(2);
-    double sq_dist_from_ball = xdist*xdist + ydist*ydist + zdist*zdist;
+    const auto pos_diff = ee_pos->CopyToVector() - ball_state->CopyToVector();
+    const double sq_dist_from_ball = pos_diff.squaredNorm();
 
+    // TODO(mws): Repace all of the magic numbers below with named constants
+    // located in a central location (like here).
+    const int kZ = 2;  // Z-axis index.
     switch (current_state) {
       case IDLE: {
         // Immediately transition to CWISE.
@@ -138,7 +152,7 @@ class FSM_System : public LeafSystem<double> {
       }
       case ABOVE_BALL_1: {
         // Once above, go to the other side.
-        if (std::fabs(zdist*zdist - 0.4*0.4) < 0.001) {
+        if (std::fabs(pos_diff[kZ]*pos_diff[kZ] - 0.4*0.4) < 0.001) {
           ball_adj[0] = -0.2;
           ball_adj[2] = 0;
           switches_.ball_target_offset->set_offset(ball_adj);
@@ -158,7 +172,7 @@ class FSM_System : public LeafSystem<double> {
       }
       case ABOVE_BALL_2: {
         // Once above, go to the other side.
-        if (std::fabs(zdist*zdist - 0.4*0.4) < 0.001) {
+        if (std::fabs(pos_diff[kZ]*pos_diff[kZ] - 0.4*0.4) < 0.001) {
           ball_adj[0] = 0.2;
           ball_adj[2] = 0;
           switches_.ball_target_offset->set_offset(ball_adj);
@@ -182,7 +196,6 @@ class FSM_System : public LeafSystem<double> {
           switches_.ball_target_offset->set_offset(ball_adj);
           current_state = TOP_1;
         }
-
         break;
       }
       case TOP_1: {
@@ -230,7 +243,6 @@ class FSM_System : public LeafSystem<double> {
         double ydot = ball_state->GetAtIndex(11);
 //        switches_.ball_target_offset->set_offset(Vector3d(xdot*direction_multiply_target, ydot*direction_multiply_target, 0.1));
 //        switches_.waypoint_target_offset->set_offset(Vector3d(xdot*direction_multiply_waypoint, ydot*direction_multiply_waypoint, target_offset_height));
-
         switches_.ball_target_offset->set_offset(Vector3d(std::fmin(std::fmax(xdot*direction_multiply_target, -0.3), 0.3), std::fmin(std::fmax(ydot*direction_multiply_target, -0.3), 0.3), 0.1));
         switches_.waypoint_target_offset->set_offset(Vector3d(std::fmin(std::fmax(xdot*direction_multiply_waypoint, -0.3), 0.3), std::fmin(std::fmax(ydot*direction_multiply_waypoint, -0.3), 0.3), target_offset_height));
 
@@ -241,7 +253,6 @@ class FSM_System : public LeafSystem<double> {
         break;
       }
       case TRAJ4: {
-
         if (arm_contacts_ball) {
           switches_.ball_target_offset->set_offset(Vector3d(0.1, 0, 0.1));
           switches_.waypoint_target_offset->set_offset(Vector3d(0.3, 0, 0.25));
@@ -355,8 +366,6 @@ class FSM_System : public LeafSystem<double> {
 //    auto traj_unique_ptr = std::make_unique<PiecewisePolynomial<double>>(PiecewisePolynomial<double>::FirstOrderHold(kTimes, knots));
 //    next_traj.swap(traj_unique_ptr);
 //  }
-
-
 };
 
 }  // namespace iiwa_soccer
