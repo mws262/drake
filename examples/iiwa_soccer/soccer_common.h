@@ -10,7 +10,10 @@ namespace drake {
 namespace examples {
 namespace iiwa_soccer {
 
+// TODO(mws): Rename to a camel-case, more descriptive name.
+// TODO(mws): Document the purpose of this data structure.
 struct switches {
+  // TODO(mws): Briefly document the purpose of the variables below.
   SourceSwitcher<double> *torque_source_switcher;
   SourceSwitcher<double> *setpt_source_switcher;
   SourceSwitcher<double> *offset_source_switcher;
