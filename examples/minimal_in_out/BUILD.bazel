@@ -1,0 +1,84 @@
+# -*- python -*-
+
+load(
+    "//tools:drake.bzl",
+    "drake_cc_library",
+    "drake_cc_binary",
+)
+load("//tools/install:install_data.bzl", "install_data")
+load("//tools/lint:lint.bzl", "add_lint_tests")
+load(
+    "@drake//tools/vector_gen:vector_gen.bzl",
+    "drake_cc_vector_gen_library",
+)
+
+drake_cc_library(
+    name = "minimal_system",
+    srcs = ["minimal_system.cc"],
+    hdrs = ["minimal_system.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//systems/analysis",
+        "//systems/framework",
+    ],
+)
+
+drake_cc_binary(
+    name = "do_example",
+    srcs = ["do_example.cc"],
+    deps = [
+        ":minimal_system",
+        "//systems/primitives",
+    ],
+)
+
+drake_cc_library(
+    name = "time_based_source_switcher",
+    srcs = ["time_based_source_switcher.cc"],
+    hdrs = ["time_based_source_switcher.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//systems/framework",
+    ],
+)
+
+drake_cc_library(
+    name = "point_drawer",
+    srcs = ["point_drawer.cc"],
+    hdrs = ["point_drawer.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//multibody:rigid_body_tree",
+        "//systems/framework",
+        "//systems/rendering:pose_vector",
+        "@lcmtypes_bot2_core",
+    ],
+)
+
+drake_cc_binary(
+    name = "test_time_based",
+    srcs = ["test_time_based.cc"],
+    deps = [
+        ":time_based_source_switcher",
+        "//systems/analysis",
+        "//systems/framework",
+        "//systems/primitives",
+    ],
+)
+
+drake_cc_binary(
+    name = "TestPchip",
+    srcs = ["TestPchip.cc"],
+    deps = [
+        "//common/trajectories:piecewise_polynomial",
+        "//lcm",
+        "//multibody/rigid_body_plant:frame_visualizer",
+        "//systems/analysis",
+        "//systems/framework",
+        "//systems/primitives",
+    ],
+)
+
+install_data()
+
+add_lint_tests()

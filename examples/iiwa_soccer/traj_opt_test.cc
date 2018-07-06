@@ -26,6 +26,10 @@
 #include "drake/examples/iiwa_soccer/nonconstant_abstract_source.h"
 #include "drake/systems/primitives/trajectory_source.h"
 #include "drake/systems/trajectory_optimization/direct_collocation.h"
+#include "drake/multibody/constraint_wrappers.h"
+#include "drake/multibody/kinematics_cache_helper.h"
+#include "drake/solvers/binding.h"
+
 
 
 namespace drake {
@@ -45,6 +49,9 @@ using manipulation::util::SimDiagramBuilder;
 using systems::RigidBodyPlant;
 using systems::Simulator;
 using systems::ConstantVectorSource;
+using systems::plants::KinematicsCacheHelper;
+using systems::plants::SingleTimeKinematicConstraintWrapper;
+using solvers::Binding;
 
 typedef trajectories::PiecewisePolynomial<double> PiecewisePolynomialType;
 
@@ -109,7 +116,8 @@ void DoTrajTest() {
   dircol.AddConstraintToAllKnotPoints(u(0) <= kTorqueLimit);
 
 
-  VectorXd zero_conf = plant_ptr->get_rigid_body_tree().getZeroConfiguration();
+  const RigidBodyTree<double>* tree_ = &plant_ptr->get_rigid_body_tree();
+  VectorXd zero_conf = tree_->getZeroConfiguration();
   zero_conf.conservativeResize(14);
   Eigen::VectorXd x0 = zero_conf;
   Eigen::VectorXd xf(14);
@@ -118,8 +126,30 @@ void DoTrajTest() {
   xf[1] = -0.1;
   xf[2] = 0.1;
 
-  dircol.AddLinearConstraint(dircol.initial_state() == x0);
-  dircol.AddLinearConstraint(dircol.final_state() == xf);
+
+
+
+  // TRYING WORLD CONSTRAINT
+  auto tree_for_constraints = tree_->Clone();
+  WorldPositionConstraint wpc(tree_for_constraints.get(), tree_for_constraints->FindBody("iiwa_link_7", "iiwa14")->get_body_index(),
+                          Vector3d(0,0,1), Vector3d(0,0,0.5), Vector3d(0,0,1.5), Vector2d(NAN, NAN));
+
+  KinematicsCacheHelper<double> cache_helper(*tree_for_constraints);
+  auto kine_constraint_wrapper = std::make_shared<SingleTimeKinematicConstraintWrapper>(&wpc, &cache_helper);
+
+  //Binding<SingleTimeKinematicConstraintWrapper> con_bind(kine_constraint_wrapper, DECISIONVARS);
+  for (int i = 10; i < 20; i++){
+
+    dircol.AddConstraint(kine_constraint_wrapper, dircol.state(i).topRows(7));
+  }
+
+
+
+
+
+
+//  dircol.AddLinearConstraint(dircol.initial_state() == x0);
+//  dircol.AddLinearConstraint(dircol.final_state() == xf);
 
   dircol.AddEqualTimeIntervalsConstraints();
 
