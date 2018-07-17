@@ -165,11 +165,11 @@ int DoMainControlled() {
   k_d << FLAGS_kd, FLAGS_kd, FLAGS_kd;
 
   // Target tracking controller.
-  auto imped_controller = base_builder->AddSystem<ImpedanceController>(tree_for_control,
+  auto imped_controller = base_builder->AddSystem<CompliantController>(tree_for_control,
                                                                        *tree_for_control.findFrame("iiwa_link_ee_kuka").get(),
                                                                        k_p,
                                                                        k_d,
-                                                                       lcm); // Add an ImpedanceController. Give it the tree to help with kinematics.
+                                                                       lcm); // Add an CompliantController. Give it the tree to help with kinematics.
   // Gravity compensation controller.
   auto inverse_dyn = base_builder->AddSystem<InverseDynamics<double>>(tree_for_control, true);
 

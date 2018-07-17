@@ -7,31 +7,37 @@
 #include "drake/multibody/rigid_body_tree.h"
 #include "drake/common/trajectories/piecewise_polynomial.h"
 
-
-
 namespace drake {
 namespace examples {
 namespace iiwa_soccer {
 
-// TODO(mws): Rename to a camel-case, more descriptive name.
-// TODO(mws): Document the purpose of this data structure.
+// System constants.
+const int arm_num_joints = 7;
+const int arm_num_states = 14;
+const int ball_num_states = 13;
 
-// Twiddling knobs without compiling everything.
+// Knob twiddlers.
 double direction_multiply_target = 0;
 double direction_multiply_waypoint = 10;
 double waypoint_time = 2;
 double target_time = 4;
-double target_offset_height = 0.09;
+double target_offset_height = 0.0;
+double waypoint_offset_height = 0.1;
+double direction_target_min = 1e-5;
+double direction_waypoint_min = 1e-4;
 
-struct switches {
-  // TODO(mws): Briefly document the purpose of the variables below.
-  SourceSwitcher<double> *torque_source_switcher;
-  SourceSwitcher<double> *setpt_source_switcher;
-  SourceSwitcher<double> *offset_source_switcher;
-  NonconstantVectorSource *ball_target_offset;
-  NonconstantVectorSource *waypoint_target_offset;
+// Systems which switch between controllers, trigger replanning, etc.
+struct SystemSwitches {
+  SourceSwitcher<double> *torque_source_switcher; // Call switch_output to determine who sends torque to motors.
+  SourceSwitcher<double> *setpt_source_switcher; // Switch who sends a cartesian setpoint to the compliant controller.
+  SourceSwitcher<double> *offset_source_switcher; // Determine who sends an offset to the setpt.
 
-  SplineTrajectories *spline_maker;
+  NonconstantVectorSource *ball_target_offset; // Adjustable target vector.
+  NonconstantVectorSource *waypoint_target_offset; // Adjustable vector for waypoint of a spline.
+
+  SplineTrajectories *spline_maker; // Makes splines for the end effector to follow. Can be triggered to replan.
+
+  NonconstantAbstractSource<PiecewisePolynomial<double>>* ik_traj_receiver; // Can receive full joint trajectories, i.e. from IK.
 
   //NonconstantAbstractSource<trajectories::PiecewisePolynomial<double>> *full_dim_traj_receiver;
   RigidBodyTree<double> *tree;

@@ -15,39 +15,38 @@ using std::pair;
 using std::string;
 
 template <typename T>
-SourceSwitcher<T>::SourceSwitcher(const int output_vector_size) : output_vector_size_(output_vector_size) {
+SourceSwitcher<T>::SourceSwitcher(const int& output_vector_size) : output_vector_size_(output_vector_size) {
 this->DeclareVectorOutputPort(systems::BasicVector<T>(output_vector_size),
     &SourceSwitcher<T>::DoOutputCalc);
 }
 
 template <typename T>
-const InputPortDescriptor<T>& SourceSwitcher<T>::add_selectable_output(string output_name) {
+const InputPortDescriptor<T>& SourceSwitcher<T>::add_selectable_output(const string& output_name) {
   int port_being_added = this->get_num_input_ports();
 
   // Add this output to the string name keyed map.
   output_map_.insert(pair<string,int>(output_name, port_being_added));
-  current_output_ = port_being_added; // Make the most recently addeed input the active one.
+  current_output_ = port_being_added; // Make the most recently added input the active one.
 
   return this->DeclareVectorInputPort(BasicVector<T>(output_vector_size_));
 }
 
 template <typename T>
-void SourceSwitcher<T>::switch_output(string output_name) {
+void SourceSwitcher<T>::switch_output(const string& output_name) {
   current_output_ = output_map_.at(output_name);
 }
 
 template <typename T>
-void SourceSwitcher<T>::switch_output(int output_num) {
+void SourceSwitcher<T>::switch_output(const int& output_num) {
   DRAKE_DEMAND(output_num < this->get_num_output_ports() && output_num >= 0);
 
   current_output_ = output_num;
 }
 
-//template <typename T>
-//const OutputPort<T>& SourceSwitcher<T>::get_output_port() {
-//  return this->get_output_port(0);
-//}
-
+template <typename T>
+const InputPortDescriptor<T>& SourceSwitcher<T>::get_output_port_by_name(const string& output_name) {
+  return this->get_input_port(output_map_.at(output_name));
+}
 
 template<typename T>
 void SourceSwitcher<T>::DoOutputCalc(const Context<T>& context, BasicVector<T>* output) const {

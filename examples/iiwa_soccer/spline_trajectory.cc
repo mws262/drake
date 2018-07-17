@@ -1,7 +1,6 @@
 #include "drake/examples/iiwa_soccer/spline_trajectory.h"
 #include "drake/multibody/rigid_body_plant/frame_visualizer.h"
 
-
 namespace drake {
 namespace examples {
 namespace iiwa_soccer {
@@ -11,73 +10,52 @@ using systems::Context;
 using trajectories::PiecewisePolynomial;
 using systems::PublishEvent;
 using Eigen::Vector3d;
+using trajectories::Trajectory;
 
+SplineTrajectories::SplineTrajectories() :
+    traj_out_port_idx_(this->DeclareAbstractOutputPort(&SplineTrajectories::CalcTrajectory).get_index()),
+    waypoint_in_port_idx_(this->DeclareVectorInputPort(BasicVector<double>(3)).get_index()),
+    target_in_port_idx_(this->DeclareVectorInputPort(BasicVector<double>(3)).get_index()) {}
 
-SplineTrajectories::SplineTrajectories(double start_time, double duration, lcm::DrakeLcm& lcm) : start_time_(start_time),
-                                                                                                 end_time_(start_time + duration),
-                                                                                                 current_origin_(3),
-                                                                                                 start_pt_(0., 0., 1.) {
-  this->DeclareVectorInputPort(BasicVector<double>(3)); // A waypoint.
-  this->DeclareVectorInputPort(BasicVector<double>(3)); // Destination.
-
-  this->DeclareAbstractOutputPort(&SplineTrajectories::CalcTrajectory);
+SplineTrajectories::SplineTrajectories(lcm::DrakeLcm& lcm) : SplineTrajectories() {
+  debug_draw = true;
   lcm_ = &lcm;
-  current_origin_.SetZero();
 }
 
 
-void SplineTrajectories::set_start_pt(const Vector3d& new_start_pt, double time_to_waypt, double time_to_destination) {
-  start_pt_[0] = new_start_pt[0];
-  start_pt_[1] = new_start_pt[1];
-  start_pt_[2] = new_start_pt[2];
-
-  start_time_ = current_time_;
-  waypoint_time_ = current_time_ + time_to_waypt;
-  end_time_ = current_time_ + time_to_destination;
-
+void SplineTrajectories::set_start_pt(const Vector3d& new_start_pt,
+                                      const double& beginning_time,
+                                      const double& time_to_waypt,
+                                      const double& time_to_destination) {
+  start_pt_ << new_start_pt;
+  start_time_ = beginning_time;
+  waypoint_time_ = beginning_time + time_to_waypt;
+  end_time_ = beginning_time + time_to_destination;
 }
 
 void SplineTrajectories::CalcTrajectory(const Context<double>& context, PiecewisePolynomial<double>* output) const {
-//  if (!lock_start_pos_ || (current_origin_[0] == 0 &&
-//  current_origin_[1] == 0 && current_origin_[2] == 0) ) {
-//    current_origin_.SetFromVector(this->EvalVectorInput(context, 0)->CopyToVector());
-//  }
+  if (start_time_ < 0) { // Return an empty trajectory if set_start_pt has not yet been called.
+    current_trajectory_ = PiecewisePolynomial<double>();
+  }else {
+    const systems::BasicVector<double> *waypt = this->EvalVectorInput(context, 0); // Control point along spline.
+    const systems::BasicVector<double> *destination = this->EvalVectorInput(context, 1); // Spline terminal point.
 
-  current_time_ = context.get_time();
+    std::vector<double> breaks; // The "phase" or "time" along the polynomial.
+    std::vector<MatrixX<double>> knots; // Points we want to go through.
 
-  const systems::BasicVector<double>* waypt = this->EvalVectorInput(context, 0);
-  const systems::BasicVector<double>* destination = this->EvalVectorInput(context, 1);
+    breaks.push_back(start_time_);
+    breaks.push_back(waypoint_time_);
+    breaks.push_back(end_time_);
 
-  std::vector<double> breaks; // The "phase" or "time" along the polynomial.
-  std::vector<MatrixX<double>> knots; // Points we want to go through.
+    knots.push_back(start_pt_);
+    knots.push_back(waypt->CopyToVector());
+    knots.push_back(destination->CopyToVector());
 
-  breaks.push_back(start_time_);
-  breaks.push_back(waypoint_time_);
-  breaks.push_back(end_time_);
-
-  MatrixX<double> pt1 = MatrixX<double>::Zero(3,1);
-  pt1(0,0) = start_pt_[0];
-  pt1(1,0) = start_pt_[1];
-  pt1(2,0) = start_pt_[2];
-  knots.push_back(pt1);
-
-  MatrixX<double> pt2 = MatrixX<double>::Zero(3,1);
-  pt2(0,0) = waypt->GetAtIndex(0);
-  pt2(1,0) = waypt->GetAtIndex(1);
-  pt2(2,0) = waypt->GetAtIndex(2);
-  knots.push_back(pt2);
-
-  MatrixX<double> pt3 = MatrixX<double>::Zero(3,1);
-  pt3(0,0) = destination->GetAtIndex(0);
-  pt3(1,0) = destination->GetAtIndex(1);
-  pt3(2,0) = destination->GetAtIndex(2);
-  knots.push_back(pt3);
-
-  breaks_ = breaks;
-  knots_ = knots;
-  current_trajectory_= PiecewisePolynomial<double>::Pchip(breaks_, knots_);
+    breaks_ = breaks;
+    knots_ = knots;
+    current_trajectory_ = PiecewisePolynomial<double>::Cubic(breaks_, knots_);
+  }
   *output = current_trajectory_;
-
 }
 
 

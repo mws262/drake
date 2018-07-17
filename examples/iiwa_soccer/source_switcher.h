@@ -34,7 +34,7 @@ class SourceSwitcher : public LeafSystem<T> {
    *
    * @param output_vector_size
    */
-  SourceSwitcher(const int output_vector_size);
+  SourceSwitcher(const int& output_vector_size);
 
   /**
    * Add a new output that this switcher can be toggled to. Switcher will switch to this
@@ -44,18 +44,13 @@ class SourceSwitcher : public LeafSystem<T> {
    * @param output_name Name of added output. Can be used to switch to this added output.
    * @param builder
    */
-  const InputPortDescriptor<T>& add_selectable_output(string output_name);
+  const InputPortDescriptor<T>& add_selectable_output(const string& output_name);
 
-  void switch_output(string output_name);
+  void switch_output(const string& output_name);
 
-  void switch_output(int output_num);
+  void switch_output(const int& output_num);
 
-
-
-//  /**
-//   * Get the sole output of this switcher.
-//   */
-//  const OutputPort<T>& get_output_port();
+  const InputPortDescriptor<T>& get_output_port_by_name(const string& output_name);
 
  private:
   const int output_vector_size_;

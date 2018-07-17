@@ -30,7 +30,7 @@ class FrameChannel(object):
                 msg.position[i], msg.quaternion[i])
             # `vis.updateFrame` will either create or update the frame
             # according to its name within its parent folder.
-            vis.updateFrame(transform, name, parent=folder, scale=0.1)
+            vis.updateFrame(transform, name, parent=folder, scale=0.02)
 
     def _get_folder(self):
         return om.getOrCreateContainer(

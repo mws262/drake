@@ -19,6 +19,12 @@
       <geometry>
         <sphere radius="0.07" />
       </geometry>
+            <drake_compliance>
+                  <youngs_modulus>3e8</youngs_modulus>
+                  <dissipation>10</dissipation>
+                  <static_friction>100.0</static_friction>
+                  <dynamic_friction>100.0</dynamic_friction>
+              </drake_compliance>
     </collision>
 
   </link>

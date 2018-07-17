@@ -1,0 +1,9 @@
+package drake;
+
+struct lcmt_arbitrary_arrow_collection {
+  // in microseconds
+  int64_t timestamp;
+
+  int32_t num_arrows;
+  lcmt_arbitrary_arrow_info arrow_info[num_arrows];
+}

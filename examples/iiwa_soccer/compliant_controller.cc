@@ -1,5 +1,5 @@
 
-#include "drake/examples/iiwa_soccer/impedance_controller.h"
+#include "drake/examples/iiwa_soccer/compliant_controller.h"
 #include "drake/common/eigen_types.h"
 #include "drake/systems/lcm/lcm_publisher_system.h"
 #include "drake/systems/lcm/lcm_subscriber_system.h"
@@ -21,33 +21,39 @@ using systems::ContinuousState;
 using math::RollPitchYaw;
 using math::RotationMatrix;
 using Eigen::Vector3d;
+using Eigen::VectorXd;
 
 
-const InputPortDescriptor<double>& ImpedanceController::get_input_port_estimated_state() const {
-  return this->get_input_port(0);
+CompliantController::CompliantController(const RigidBodyTree<double>& tree,
+                                         const RigidBodyFrame<double>& controlled_frame,
+                                         const Vector3<double>& k_p,
+                                         const Vector3<double>& k_d) :
+    state_size_(tree.get_num_positions() + tree.get_num_velocities()),
+    command_output_size_(tree.get_num_actuators()),
+    controlled_frame_(controlled_frame),
+    tree_(tree), k_p_(k_p), k_d_(k_d),
+    previous_torques_(command_output_size_){
+
+  BasicVector<double> integrator_state(target_input_size_/2); // just positions, not velocities.
+  integrator_state.SetZero();
+  this->DeclareContinuousState(integrator_state); // For integral control.
+
+  state_input_port_idx_ = this->DeclareVectorInputPort(BasicVector<double>(state_size_)).get_index();
+  setpt_input_port_idx_ = this->DeclareVectorInputPort(BasicVector<double>(target_input_size_)).get_index();
+  torque_output_port_idx_ = this->DeclareVectorOutputPort(BasicVector<double>(command_output_size_), &CompliantController::DoControlCalc).get_index();
 }
 
-const InputPortDescriptor<double>& ImpedanceController::get_input_port_cartesian_target() const {
-  return this->get_input_port(1);
-}
+void CompliantController::DoCalcTimeDerivatives(const Context<double>& context, ContinuousState<double>* derivatives) const {
+  const systems::BasicVector<double>* st_vector = this->EvalVectorInput(context, state_input_port_idx_); // state est
+  const systems::BasicVector<double>* target_vector = this->EvalVectorInput(context, setpt_input_port_idx_);
 
-const OutputPort<double>& ImpedanceController::get_output_port_control() const {
-  return this->get_output_port(0);
-}
+  VectorXd st_vecx = st_vector->CopyToVector();
+  VectorXd st_just_pos = st_vecx.topRows(state_size_/2);
+  KinematicsCache<double> kinematics_cache = tree_.doKinematics(st_just_pos);
+  Isometry3<double> hand_world_pose = tree_.CalcFramePoseInWorldFrame(kinematics_cache, controlled_frame_);
 
-const OutputPort<double>& ImpedanceController::get_output_port_hand_pos() const {
-  return this->get_output_port(1);
-}
-
-void ImpedanceController::DoCalcTimeDerivatives(const Context<double>& context, ContinuousState<double>* derivatives) const {
-  //context.get_continuous_state_vector();
-  //const systems::BasicVector<double>* target_vector = this->EvalVectorInput(context, 1);
-  // TODO(mws): Check the derivative calculation below; this function should be
-  // computing the derivative of the controller state stored in the context,
-  // which it does not appear to be doing.
-  derivatives->get_mutable_vector()[0] = (x_target[0] - hand_pos[0]);
-  derivatives->get_mutable_vector()[1] = (x_target[1] - hand_pos[1]);
-  derivatives->get_mutable_vector()[2] = (x_target[2] - hand_pos[2]);
+  Vector3d position_error = target_vector->CopyToVector().topRows(3) - hand_world_pose.translation();
+  derivatives->get_mutable_vector().SetFromVector(position_error);
 
   //.SetFromVector(10000.0 * (x_target.colwise() - hand_pos));
 }
@@ -58,21 +64,22 @@ void ImpedanceController::DoCalcTimeDerivatives(const Context<double>& context, 
  * @param context
  * @param output
  */
-void ImpedanceController::DoControlCalc(const Context<double>& context, BasicVector<double>* const output) const {
-  const systems::BasicVector<double>* st_vector = this->EvalVectorInput(context, 0); // state est
-  const systems::BasicVector<double>* target_vector = this->EvalVectorInput(context, 1);
+void CompliantController::DoControlCalc(const Context<double>& context, BasicVector<double>* const output) const {
+  const systems::BasicVector<double>* st_vector = this->EvalVectorInput(context, state_input_port_idx_); // state est
+  const systems::BasicVector<double>* target_vector = this->EvalVectorInput(context, setpt_input_port_idx_);
 
 
    // Is there a better way to do this?
-  x_target[0] = target_vector->GetAtIndex(0);
-  x_target[1] = target_vector->GetAtIndex(1); // Y can't change.
-  x_target[2] = target_vector->GetAtIndex(2);
+  x_target = target_vector->CopyToVector().topRows(3);
+
+  VectorXd v_target = target_vector->CopyToVector().bottomRows(3);
 
 
   VectorX<double> st_vecx = st_vector->CopyToVector();
-  auto st_just_pos = st_vecx.topRows(state_size_/2);
-  auto st_just_vel = st_vecx.bottomRows(state_size_/2);
-  auto kinematics_cache = tree_.doKinematics(st_just_pos);
+  VectorX<double> st_just_pos = st_vecx.topRows(state_size_/2);
+  VectorX<double> st_just_vel = st_vecx.bottomRows(state_size_/2);
+  KinematicsCache<double> kinematics_cache = tree_.doKinematics(st_just_pos);
+
 
 //  Eigen::Isometry3d ee_frame = tree_.CalcFramePoseInWorldFrame(kinematics_cache, controlled_frame_);
 //
@@ -95,7 +102,7 @@ void ImpedanceController::DoControlCalc(const Context<double>& context, BasicVec
   Matrix6X<double> J = tree_.CalcFrameSpatialVelocityJacobianInWorldFrame(kinematics_cache, controlled_frame_, true);
 
   // angular velocity and then linear velocity.
-  auto hand_world_pose = tree_.CalcFramePoseInWorldFrame(kinematics_cache, controlled_frame_);
+  Isometry3<double> hand_world_pose = tree_.CalcFramePoseInWorldFrame(kinematics_cache, controlled_frame_);
   hand_pos = hand_world_pose.translation();
   auto J_linear = J.block(3, 0, 3, command_output_size_);
 
@@ -105,7 +112,7 @@ void ImpedanceController::DoControlCalc(const Context<double>& context, BasicVec
   // auto J_rot = J.block(0, 0, 3, command_output_size_);
 
 //  // + 0.0*context.get_continuous_state_vector().CopyToVector().cwiseAbs()
-   auto torque = J_linear.transpose()*((k_p_).cwiseProduct(x_target.colwise() - hand_pos) + k_d_.cwiseProduct(J_linear * -st_just_vel));
+   auto torque = J_linear.transpose()*(k_p_.cwiseProduct(x_target.colwise() - hand_pos) + k_d_.cwiseProduct(v_target.colwise() - J_linear * st_just_vel));
 
 //RollPitchYaw<double> rpy_goal(0, 0, 0);
 //  Vector3<double> z(100,0,0);
@@ -114,6 +121,8 @@ void ImpedanceController::DoControlCalc(const Context<double>& context, BasicVec
 
 
   BasicVector<double> torque_out(torque); // Convert to BasicVector for some reason.
+
+
   torque_out.SetAtIndex(2, -st_vector->GetAtIndex(2) - st_vector->GetAtIndex(9) + torque_out.GetAtIndex(2)); // TMP TMP TMP kills arm tilting too much.
   //torque_out.SetAtIndex(5, -ctrl_angle * 10 + torque_out.GetAtIndex(5));
   // Don't flip out if NaN somehow comes out.
@@ -128,7 +137,7 @@ void ImpedanceController::DoControlCalc(const Context<double>& context, BasicVec
   output->SetFrom(torque_out);
 }
 
-void ImpedanceController::DoPublish(const Context<double>& context, const std::vector<const PublishEvent<double>*>& events) const {
+void CompliantController::DoPublish(const Context<double>& context, const std::vector<const PublishEvent<double>*>& events) const {
   if (draw_status_ && (0.05 - std::fmod(context.get_time(), 0.05)) < 0.001) {
     // Draws the location of the controller's target.
     drake::lcmt_viewer_draw frame_msg{};

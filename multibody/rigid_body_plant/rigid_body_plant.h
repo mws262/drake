@@ -14,6 +14,7 @@
 #include "drake/multibody/rigid_body_plant/kinematics_results.h"
 #include "drake/multibody/rigid_body_tree.h"
 #include "drake/systems/framework/leaf_system.h"
+#include "drake/common/eigen_types.h"
 
 namespace drake {
 namespace systems {
@@ -394,6 +395,9 @@ class RigidBodyPlant : public LeafSystem<T> {
   /// (seconds per update).
   double get_time_step() const { return timestep_; }
 
+  // Matt hax
+  void set_wrench(Eigen::VectorXd& wrench);
+
  protected:
   // Constructor for derived classes to support system scalar conversion, as
   // mandated in the doxygen `system_scalar_conversion` documentation.
@@ -405,10 +409,14 @@ class RigidBodyPlant : public LeafSystem<T> {
   // exception if at least one of the ports is not connected.
   VectorX<T> EvaluateActuatorInputs(const Context<T>& context) const;
 
+  // Matt hax
+  typename RigidBodyTree<T>::BodyToWrenchMap no_external_wrenches;
+
   // LeafSystem<T> overrides.
 
   std::unique_ptr<ContinuousState<T>> AllocateContinuousState() const override;
   std::unique_ptr<DiscreteValues<T>> AllocateDiscreteState() const override;
+
 
   // System<T> overrides.
 

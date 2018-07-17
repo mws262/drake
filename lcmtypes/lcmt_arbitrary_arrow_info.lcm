@@ -1,0 +1,13 @@
+package drake;
+
+struct lcmt_arbitrary_arrow_info {
+  // In microseconds
+  int64_t timestamp;
+
+  // These are all expressed in the world frame.
+  double arrow_origin[3];
+  double arrow_vector[3];
+
+  double rgb[3];
+
+}

@@ -23,11 +23,7 @@ using systems::PublishEvent;
 using systems::VectorSystem;
 using systems::ContinuousState;
 
-
-// TODO(mws): Change the name of this controller or the comment, depending on
-// which of us is correct. My understanding of impedance control is that it
-// uses the operational-space inertia matrix (at the end effector) and the
-// velocity at the end-effector; this appears to be a "stiffness" controller.
+/// "Simple" impedance control. Equivalent to a spring-damper tugging on the end effector.
 /// An operational space "stiffness" controller.
 /// Inputs:
 /// - 0: the estimated current state.
@@ -35,65 +31,55 @@ using systems::ContinuousState;
 /// Outputs:
 /// - 0: the motor torques.
 /// - 1:
-class ImpedanceController : public systems::LeafSystem<double> {
+class CompliantController : public systems::LeafSystem<double> {
 
  public:
+  /**
+   *
+   * @param tree
+   * @param controlled_frame
+   * @param k_p
+   * @param k_d
+   */
+  CompliantController(const RigidBodyTree<double>& tree,
+                      const RigidBodyFrame<double>& controlled_frame,
+                      const Vector3<double>& k_p,
+                      const Vector3<double>& k_d);
 
   // Constructor with LCM. Will draw target point if publish is on.
-  ImpedanceController(const RigidBodyTree<double>& tree,
+  CompliantController(const RigidBodyTree<double>& tree,
                       const RigidBodyFrame<double>& controlled_frame,
                       const Vector3<double>& k_p,
                       const Vector3<double>& k_d,
                       drake::lcm::DrakeLcm& lcm) :
-      ImpedanceController(tree, controlled_frame, k_p, k_d) {
+      CompliantController(tree, controlled_frame, k_p, k_d) {
 
     draw_status_ = true;
     lcm_ = &lcm;
   }
 
-  // Constructor without lcm. Draws nothing.
-  ImpedanceController(const RigidBodyTree<double>& tree,
-                      const RigidBodyFrame<double>& controlled_frame,
-                      const Vector3<double>& k_p,
-                      const Vector3<double>& k_d) :
-      state_size_(tree.get_num_positions() + tree.get_num_velocities()),
-      command_output_size_(tree.get_num_actuators()),
-      controlled_frame_(controlled_frame),
-      tree_(tree), k_p_(k_p), k_d_(k_d),
-      previous_torques_(command_output_size_){
 
-    BasicVector<double> integrator_state(target_input_size_);
-    integrator_state.SetZero();
-
-    this->DeclareContinuousState(integrator_state); // For integral control.
-    this->DeclareVectorInputPort(BasicVector<double>(state_size_)); // Input 0.
-    this->DeclareVectorInputPort(BasicVector<double>(target_input_size_)); // Input 1.
-    this->DeclareVectorOutputPort(BasicVector<double>(command_output_size_), &ImpedanceController::DoControlCalc); // Output 0.
-    this->DeclareVectorOutputPort(BasicVector<double>(target_input_size_), &ImpedanceController::GetHandPos); // Output 1.
+  const InputPortDescriptor<double>& get_input_port_estimated_state() const {
+    return this->get_input_port(state_input_port_idx_);
   }
 
-  /**
-   * Returns the input port for the estimated state.
-   */
-  const InputPortDescriptor<double>& get_input_port_estimated_state() const;
+  const InputPortDescriptor<double>& get_input_port_cartesian_target() const {
+    return this->get_input_port(setpt_input_port_idx_);
+  }
 
-  /**
-   * Returns the input port for the desired state.
-   */
-  const InputPortDescriptor<double>& get_input_port_cartesian_target() const;
-
-  /**
-   * Returns the output port for computed control.
-   */
-  const OutputPort<double>& get_output_port_control() const;
-
-  const OutputPort<double>& get_output_port_hand_pos() const;
+  const OutputPort<double>& get_output_port_control() const {
+    return this->get_output_port(torque_output_port_idx_);
+  }
 
   void DoPublish(const Context<double>& context, const std::vector<const PublishEvent<double>*>& events) const;
 
  private:
+  int state_input_port_idx_;
+  int setpt_input_port_idx_;
+  int torque_output_port_idx_;
+
   const int state_size_; // angles and angular rates at shoulder and elbow.
-  const int target_input_size_ = 3; // x, y, z end effector target.
+  const int target_input_size_ = 6; // x, y, z, xdot, ydot, zdot end effector target.
   const int command_output_size_; // torques to shoulder and elbow.
   const RigidBodyFrame<double> controlled_frame_;
   const RigidBodyTree<double>& tree_;

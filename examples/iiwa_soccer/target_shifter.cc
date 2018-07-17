@@ -8,11 +8,12 @@ namespace iiwa_soccer {
 using systems::Context;
 using systems::BasicVector;
 using systems::LeafSystem;
+using systems::InputPortDescriptor;
 
 
-TargetShifter::TargetShifter() {
-  this->DeclareVectorInputPort(BasicVector<double>(3)); // Offset in cylindrical coords.
-  this->DeclareVectorInputPort(BasicVector<double>(3)); // Ball position.
+TargetShifter::TargetShifter() : offset_input_port_id_(this->DeclareVectorInputPort(BasicVector<double>(3)).get_index()),
+                                 object_pos_input_port_id_(this->DeclareVectorInputPort(BasicVector<double>(3)).get_index()) {
+
   this->DeclareVectorOutputPort(BasicVector<double>(3), &TargetShifter::DoControlCalc); // Output 0.
 }
 

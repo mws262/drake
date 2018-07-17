@@ -874,6 +874,17 @@ VectorX<T> RigidBodyPlant<T>::TransposedContactTangentJacobianMult(
   return result;
 }
 
+
+
+template <typename T>
+void RigidBodyPlant<T>::set_wrench(Eigen::VectorXd& wrench) {
+  const RigidBody<double>* bod = &this->get_rigid_body_tree().get_body(1);
+  no_external_wrenches.clear();
+  auto p = std::make_pair(bod, wrench);
+  no_external_wrenches.insert(p);
+}
+
+
 template <typename T>
 void RigidBodyPlant<T>::DoCalcTimeDerivatives(
     const Context<T>& context, ContinuousState<T>* derivatives) const {
@@ -908,9 +919,16 @@ void RigidBodyPlant<T>::DoCalcTimeDerivatives(
   // TODO(amcastro-tri): external_wrenches should be made an optional
   // parameter
   // of dynamicsBiasTerm().
-  const typename RigidBodyTree<T>::BodyToWrenchMap no_external_wrenches;
+//  typename RigidBodyTree<T>::BodyToWrenchMap no_external_wrenches;
   // right_hand_side is the right hand side of the system's equations:
   // M*vdot -J^T*f = right_hand_side.
+
+  ////////////////
+  //no_external_wrenches.insert(current_wrench);
+  ////////////////
+
+
+
   VectorX<T> right_hand_side =
       -tree_->dynamicsBiasTerm(kinsol, no_external_wrenches);
   if (num_actuators > 0) right_hand_side += tree_->B * u;
@@ -1022,7 +1040,7 @@ RigidBodyPlant<T>::DoCalcDiscreteVariableUpdatesImpl(
 
   // There are no external wrenches, but it is a required argument in
   // dynamicsBiasTerm().
-  const typename RigidBodyTree<T>::BodyToWrenchMap no_external_wrenches;
+  //const typename RigidBodyTree<T>::BodyToWrenchMap no_external_wrenches;
 
   // right_hand_side is the right hand side of the system's equations:
   //   right_hand_side = B*u - C(q,v)

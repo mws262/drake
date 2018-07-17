@@ -252,9 +252,13 @@ class PiecewisePolynomial final : public PiecewiseTrajectory<T> {
   /**
    * Constructs a third order PiecewisePolynomial from `breaks` and `knots`.
    * The PiecewisePolynomial is constructed such that the interior segments
-   * have the same value, first and second derivatives at `breaks`.
-   * "Not-a-knot" end condition is used here, which means the third derivatives
-   * are continuous for the first two and last two segments.
+   * have the same value, first and second derivatives at `breaks`. If
+   * periodic_end_condition is false (default), then "Not-a-knot" end
+   * condition is used here, which means the third derivatives are
+   * continuous for the first two and last two segments. If
+   * periodic_end_condition is true, then the first and second derivatives
+   * between the end of the last segment and the beginning of the first
+   * segment will be continuous.
    * See https://en.wikipedia.org/wiki/Spline_interpolation for more details
    * about "Not-a-knot" condition.
    * The matlab file "spline.m" and
@@ -264,6 +268,9 @@ class PiecewisePolynomial final : public PiecewiseTrajectory<T> {
    * @p breaks and @p knots must have at least 3 elements. Otherwise there is
    * not enough information to solve for the coefficients.
    *
+   * @param periodic_end_condition Determines whether the "not-a-knot" or the
+   * periodic spline end condition is used.
+   *
    * @throws std::runtime_error if
    *    `breaks` and `knots` have different length,
    *    `breaks` is not strictly increasing,
@@ -272,7 +279,8 @@ class PiecewisePolynomial final : public PiecewiseTrajectory<T> {
    */
   static PiecewisePolynomial<T> Cubic(
       const std::vector<double>& breaks,
-      const std::vector<CoefficientMatrix>& knots);
+      const std::vector<CoefficientMatrix>& knots,
+      const bool periodic_end_condition=false);
 
   /**
    * Eigen version of Cubic(breaks, knots) where each column of knots is used

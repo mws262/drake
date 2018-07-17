@@ -79,9 +79,9 @@ drake_cc_library(
 )
 
 drake_cc_library(
-    name = "impedance_controller",
-    srcs = ["impedance_controller.cc"],
-    hdrs = ["impedance_controller.h"],
+    name = "compliant_controller",
+    srcs = ["compliant_controller.cc"],
+    hdrs = ["compliant_controller.h"],
     visibility = ["//visibility:public"],
     deps = [
         "//common:default_scalars",
@@ -168,6 +168,34 @@ drake_cc_library(
     ],
 )
 
+drake_cc_library(
+    name = "magic_force",
+    srcs = ["magic_force.cc"],
+    hdrs = ["magic_force.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//common/trajectories",
+        "//multibody/rigid_body_plant",
+        "//systems/framework",
+        "//systems/primitives",
+    ],
+)
+
+drake_cc_library(
+    name = "arrows_to_lcm",
+    srcs = [
+        "arrows_to_lcm.cc",
+    ],
+    hdrs = [
+        "arrows_to_lcm.h",
+    ],
+    deps = [
+        "//lcmtypes:lcmt_arbitrary_arrow_collection",
+        "//lcmtypes:lcmt_arbitrary_arrow_info",
+        "//systems/framework",
+    ],
+)
+
 drake_cc_binary(
     name = "junction_box",
     srcs = ["junction_box.cc"],
@@ -177,8 +205,8 @@ drake_cc_binary(
         "//examples/contact_model:bowling_ball",
     ],
     deps = [
+        ":compliant_controller",
         ":fsm_system",
-        ":impedance_controller",
         ":nonconstant_abstract_source",
         ":nonconstant_vector_source",
         ":soccer_common",
@@ -200,6 +228,30 @@ drake_cc_binary(
 )
 
 drake_cc_binary(
+    name = "figure_eight",
+    srcs = ["figure_eight.cc"],
+    data = [
+        ":models",
+    ],
+    deps = [
+        ":arrows_to_lcm",
+        ":magic_force",
+        ":nonconstant_abstract_source",
+        "//common:text_logging_gflags",
+        "//lcm",
+        "//multibody:rigid_body_tree",
+        "//multibody:rigid_body_tree_construction",
+        "//multibody/parsers",
+        "//multibody/rigid_body_plant",
+        "//multibody/rigid_body_plant:drake_visualizer",
+        "//multibody/rigid_body_plant:frame_visualizer",
+        "//systems/analysis",
+        "//systems/framework",
+        "//systems/primitives",
+    ],
+)
+
+drake_cc_binary(
     name = "traj_opt_test",
     srcs = ["traj_opt_test.cc"],
     copts = [
@@ -211,8 +263,8 @@ drake_cc_binary(
         "//examples/contact_model:bowling_ball",
     ],
     deps = [
+        ":compliant_controller",
         ":fsm_system",
-        ":impedance_controller",
         ":nonconstant_abstract_source",
         ":nonconstant_vector_source",
         ":soccer_common",
@@ -245,7 +297,7 @@ drake_cc_binary(
         "//examples/contact_model:bowling_ball",
     ],
     deps = [
-        ":impedance_controller",
+        ":compliant_controller",
         ":spline_trajectory",
         ":target_shifter",
         ":time_based_source_switcher",
