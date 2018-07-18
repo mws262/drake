@@ -22,6 +22,7 @@
 #include "drake/systems/lcm/lcm_publisher_system.h"
 #include "drake/common/text_logging.h"
 #include "drake/common/text_logging_gflags.h"
+#include "drake/systems/primitives/constant_vector_source.h"
 
 
 namespace drake {
@@ -42,6 +43,7 @@ using systems::RigidBodyPlant;
 using systems::Context;
 using trajectories::Trajectory;
 using drake::systems::lcm::LcmPublisherSystem;
+using systems::ConstantVectorSource;
 
 
 DEFINE_double(cutsizethresh, 0.3, "won't cut if size is below this length (in seconds)");
@@ -50,6 +52,8 @@ DEFINE_double(cutthresh, 10, "");
 DEFINE_bool(feedback, false, "use feedback controls?");
 
 const char* ballModelPath = "drake/examples/iiwa_soccer/models/soccer_ball.urdf";
+const char* armModelPath = "drake/examples/iiwa_soccer/models/iiwa14_spheres_collision.urdf";
+
 
 void PublishFrames(std::vector<Eigen::Isometry3d>& poses, std::vector<std::string>& name, lcm::DrakeLcm& lcm) {
   drake::lcmt_viewer_draw frame_msg{};
@@ -127,12 +131,12 @@ PolyWithKnots MakeTRIPoly() {
     breaks.push_back(time_scaling*(static_cast<double>(i)/static_cast<double>(num_pts)));
   }
 
-  PiecewisePolynomial<double> original_poly = PiecewisePolynomial<double>::Cubic(breaks, knots, false);//, start_dt, end_dt);
+  PiecewisePolynomial<double> original_poly = PiecewisePolynomial<double>::Cubic(breaks, knots, true);//, start_dt, end_dt);
 
   PolyWithKnots figure8dat = {original_poly, breaks, knots};
   return figure8dat;
 }
-PolyWithKnots MakeFigure8Poly() {
+PolyWithKnots MakeFigure8Poly(Vector3d& offset) {
   double time_scaling = 5;
   double num_pts = 8;
 
@@ -168,15 +172,15 @@ PolyWithKnots MakeFigure8Poly() {
   pt8 << -lobe_width, -lobe_length/2, height;
 
 
-  knots.push_back(pt1);
-  knots.push_back(pt2);
-  knots.push_back(pt3);
-  knots.push_back(pt4);
-  knots.push_back(pt5);
-  knots.push_back(pt6);
-  knots.push_back(pt7);
-  knots.push_back(pt8);
-  knots.push_back(pt1);
+  knots.push_back(pt1 + offset);
+  knots.push_back(pt2 + offset);
+  knots.push_back(pt3 + offset);
+  knots.push_back(pt4 + offset);
+  knots.push_back(pt5 + offset);
+  knots.push_back(pt6 + offset);
+  knots.push_back(pt7 + offset);
+  knots.push_back(pt8 + offset);
+  knots.push_back(pt1 + offset);
 
   breaks.push_back(time_scaling*(0/num_pts));
   breaks.push_back(time_scaling*(1/num_pts));
@@ -332,7 +336,8 @@ std::vector<PolyWithKnots> CutUntil(PolyWithKnots original_poly, double thresh) 
 }
 
 void SetupWorld() {
-  PolyWithKnots figure8poly = MakeFigure8Poly();
+  Vector3d poly_offset(0, 0, 0);
+  PolyWithKnots figure8poly = MakeFigure8Poly(poly_offset);
   MakeTRIPoly();
   std::vector<PolyWithKnots> poly_data = CutUntil(figure8poly, FLAGS_cutthresh);
 
@@ -352,8 +357,16 @@ void SetupWorld() {
   // Import ball to tree.
   parsers::ModelInstanceIdTable ball_id_table = AddModelInstanceFromUrdfFileToWorld(FindResourceOrThrow(ballModelPath),
                                                                                     multibody::joints::kQuaternion, tree.get());
+
+  // Ball for manipulation.
+  AddModelInstanceFromUrdfFileToWorld(FindResourceOrThrow(ballModelPath),
+                                      multibody::joints::kQuaternion, tree.get());
   // Make ground part of tree.
   multibody::AddFlatTerrainToWorld(tree.get(), 100., 10.);
+
+  // add arm
+//  AddModelInstanceFromUrdfFileToWorld(FindResourceOrThrow(armModelPath),
+//                                      multibody::joints::kFixed, tree.get());
 
   //const int ball_id = ball_id_table.at("soccer_ball");
 
@@ -365,13 +378,27 @@ void SetupWorld() {
   RigidBodyPlant<double>* plant_ptr = builder.AddSystem<RigidBodyPlant<double>>(std::move(plant));
   plant_ptr->set_name("plant");
 
+
+//  VectorXd const_t(7);
+//  const_t.setZero();
+//  ConstantVectorSource<double>* const_torque = builder.AddSystem<ConstantVectorSource<double>>(const_t);
+//
+//  builder.Connect(const_torque->get_output_port(), plant_ptr->get_input_port(0));
+
+
+
+
+
   DrakeVisualizer* visualizer = builder.AddSystem<DrakeVisualizer>(plant_ptr->get_rigid_body_tree(), &lcm);
+  visualizer->set_name("main_vis");
+
   visualizer->set_publish_period(0.005);
 
   MagicForce* fext = builder.AddSystem<MagicForce>(plant_ptr, tree_ptr, poly_data, FLAGS_feedback);
   fext->repeat = true;
 
-  builder.Connect(plant_ptr->get_output_port(0), fext->get_input_port());
+  builder.Connect(plant_ptr->get_output_port(2), fext->get_input_port(0)); // Manipulated ball.
+  builder.Connect(plant_ptr->get_output_port(3), fext->get_input_port(1)); // Manipulator ball.
 
   builder.Connect(plant_ptr->get_output_port(0), visualizer->get_input_port(0));
 
@@ -380,9 +407,9 @@ void SetupWorld() {
   std::vector<Eigen::Isometry3d> poses_to_draw;
   std::vector<std::string> pose_names;
 
-  for (auto poly_dat : poly_data) {
+  for (PolyWithKnots poly_dat : poly_data) {
     for (double i = poly_dat.poly.start_time(); i < poly_dat.poly.end_time(); i += 0.01) {
-      auto val = poly_dat.poly.value(i);
+      VectorXd val = poly_dat.poly.value(i);
 
       Eigen::Vector3d vec = {val.col(0)[0], val.col(0)[1], val.col(0)[2]};
       Eigen::Isometry3d traj_pos;
@@ -412,7 +439,7 @@ void SetupWorld() {
   double arrow_scaling = 0.05;
   double arrow_scaling_vel = 0.05;
   double red_thresh = std::sqrt(FLAGS_cutthresh);
-  for (auto poly_dat : poly_data) {
+  for (PolyWithKnots poly_dat : poly_data) {
     std::unique_ptr<Trajectory<double>> poly_ddt = poly_dat.poly.MakeDerivative(2);
     std::unique_ptr<Trajectory<double>> poly_dt = poly_dat.poly.MakeDerivative(1);
     for (double i = poly_dat.poly.start_time(); i < poly_dat.poly.end_time(); i += 0.05) {
@@ -459,6 +486,10 @@ void SetupWorld() {
   plant_ptr->set_velocity(&context, 1, vx0/0.07);
   plant_ptr->set_velocity(&context, 3, vx0);
   plant_ptr->set_velocity(&context, 4, vy0);
+
+  plant_ptr->set_position(&context, 7, 2);
+  plant_ptr->set_position(&context, 8, 2);
+  plant_ptr->set_position(&context, 9, 4);
 
   drake::log()->info(vx0);
   drake::log()->info(vy0);

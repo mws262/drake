@@ -780,7 +780,7 @@ PiecewisePolynomial<T>::Cubic(
       } else if (periodic_end_condition) {
         // Time during the last segment.
         const double end_dt = times[times.size() - 1] - times[times.size() - 2];
-        // Enforce velocity between end of last and beginning of first segments
+        // Enforce velocity between end-of-last and beginning-of-first segments
         // are continuous.
         A(row_idx, 1) = -1; // Linear term of 1st segment.
         A(row_idx, 4 * (N - 2) + 1) = 1; // Linear term of last segment.
@@ -891,10 +891,12 @@ PiecewisePolynomial<T> PiecewisePolynomial<T>::Cubic(
 template <typename T>
 PiecewisePolynomial<T> PiecewisePolynomial<T>::Cubic(
     const Eigen::Ref<const Eigen::VectorXd>& breaks,
-    const Eigen::Ref<const MatrixX<T>>& knots) {
+    const Eigen::Ref<const MatrixX<T>>& knots,
+    const bool periodic_end_condition) {
   DRAKE_DEMAND(knots.cols() == breaks.size());
   std::vector<double> my_breaks(breaks.data(), breaks.data() + breaks.size());
-  return PiecewisePolynomial<T>::Cubic(my_breaks, ColsToStdVector(knots));
+  return PiecewisePolynomial<T>::Cubic(my_breaks, ColsToStdVector(knots),
+                                       periodic_end_condition);
 }
 
 // Computes the cubic spline coefficients based on the given values and first

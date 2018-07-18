@@ -11,13 +11,14 @@ namespace drake {
 namespace examples {
 namespace iiwa_soccer {
 
-using systems::VectorSystem;
+using systems::LeafSystem;
 using systems::BasicVector;
 using systems::RigidBodyPlant;
 using trajectories::Trajectory;
 using trajectories::PiecewisePolynomial;
 using Eigen::Vector3d;
 using Eigen::VectorXd;
+using systems::ContinuousState;
 
 
 struct PolyWithKnots{
@@ -28,7 +29,7 @@ struct PolyWithKnots{
   std::vector<MatrixX<double>> knots;
 };
 
-class MagicForce : public VectorSystem<double> {
+class MagicForce : public LeafSystem<double> {
 
  public:
   bool repeat = true;
@@ -39,11 +40,12 @@ class MagicForce : public VectorSystem<double> {
              RigidBodyTree<double>* tree_ptr,
              std::vector<PolyWithKnots>& poly_data,
              bool use_feedback=false) :
-      VectorSystem<double>(13,0),
       plant_ptr_(plant_ptr),
       tree_ptr_(tree_ptr),
       poly_data_(poly_data) {
     feedback = use_feedback;
+    this->DeclareInputPort(systems::PortDataType::kVectorValued, 13);
+    this->DeclareInputPort(systems::PortDataType::kVectorValued, 13);
     this->DeclareContinuousState(1);
     accel_multiplier = ball_mass + ball_inertia/(ball_radius*ball_radius);
   }
@@ -64,16 +66,18 @@ class MagicForce : public VectorSystem<double> {
   mutable bool ballistic_phase = false;
   mutable double time_offset = 0;
 
-  virtual void DoCalcVectorTimeDerivatives(
+  virtual void DoCalcTimeDerivatives(
       const drake::systems::Context<double>& context,
-      const Eigen::VectorBlock<const Eigen::VectorXd>& input,
-      const Eigen::VectorBlock<const Eigen::VectorXd>& state,
-      Eigen::VectorBlock<Eigen::VectorXd>* derivatives) const {
+      ContinuousState<double>* derivatives) const {
 
     // TODO this is only here to keep the compiler from throwing "unused" errors. Fix this properly.
     tree_ptr_->get_num_bodies();
 
     double time = context.get_time() + time_offset;
+
+    const BasicVector<double>* ball_pos = this->EvalVectorInput(context, 0);
+    const VectorXd ball_pos_vec = ball_pos->CopyToVector();
+
     double fx = 0;
     double fy = 0;
 
@@ -140,28 +144,22 @@ class MagicForce : public VectorSystem<double> {
         Vector3d up_vec(0, 0, 1);
         Vector3d vel_vec(traj_vel(0), traj_vel(1), traj_vel(2)); // TODO do this correctly
 
-        auto traj_normal = vel_vec.cross(up_vec);
+        VectorXd traj_normal = vel_vec.cross(up_vec);
         traj_normal.normalize();
 
-        auto curr_pos = this->EvalVectorInput(context);
-        auto error = curr_pos.topRows(3) - traj_pos;
+        VectorXd error = ball_pos_vec.topRows(3) - traj_pos;
 
-        auto error_perp = error.dot(traj_normal)*traj_normal;
+        VectorXd error_perp = error.dot(traj_normal)*traj_normal;
 
         fx += kp*(-error_perp(0));
         fy += kp*(-error_perp(1));
       }
     }
 
-//    if (path_accel.col(0)[0] * path_accel.col(0)[0] + path_accel.col(0)[1] * path_accel.col(0)[1] < 1.5*1.5){
-//      fx = 0;
-//      fy = 0;
-//    }
 
-
-    VectorXd ball_vec = this->EvalVectorInput(context);
+    // Force directly to rolling ball.
     //Vector3d ball_position = ball_vec.topRows(3);
-    VectorXd ball_quat = ball_vec.segment(3,4);
+    VectorXd ball_quat = ball_pos_vec.segment(3,4);
     Quaternion<double> ball_rot(ball_quat[0], ball_quat[1], ball_quat[2], ball_quat[3]);
     Quaternion<double> inv_ball_rot = ball_rot.conjugate();
 
@@ -171,9 +169,12 @@ class MagicForce : public VectorSystem<double> {
     Eigen::VectorXd wrench(6);
     wrench.setZero();
     wrench.bottomRows(3) = ball_force_rot;
-    plant_ptr_->set_wrench(wrench);
+    plant_ptr_->set_wrench(wrench,1);
 
-    (*derivatives)(0) = 0;
+    // Force to manipulator ball.
+
+
+    //(*derivatives)(0) = 0;
   }
 };
 

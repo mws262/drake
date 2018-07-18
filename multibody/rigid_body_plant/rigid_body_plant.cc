@@ -877,8 +877,8 @@ VectorX<T> RigidBodyPlant<T>::TransposedContactTangentJacobianMult(
 
 
 template <typename T>
-void RigidBodyPlant<T>::set_wrench(Eigen::VectorXd& wrench) {
-  const RigidBody<double>* bod = &this->get_rigid_body_tree().get_body(1);
+void RigidBodyPlant<T>::set_wrench(Eigen::VectorXd& wrench, int body_idx) {
+  const RigidBody<double>* bod = &this->get_rigid_body_tree().get_body(body_idx);
   no_external_wrenches.clear();
   auto p = std::make_pair(bod, wrench);
   no_external_wrenches.insert(p);

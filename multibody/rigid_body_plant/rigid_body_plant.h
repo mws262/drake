@@ -396,7 +396,7 @@ class RigidBodyPlant : public LeafSystem<T> {
   double get_time_step() const { return timestep_; }
 
   // Matt hax
-  void set_wrench(Eigen::VectorXd& wrench);
+  void set_wrench(Eigen::VectorXd& wrench, int body_idx);
 
  protected:
   // Constructor for derived classes to support system scalar conversion, as

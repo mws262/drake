@@ -157,6 +157,44 @@ void testValueOutsideOfRange() {
                               1e-10, MatrixCompareType::absolute));
 }
 
+// Test the generation of cubic splines with first and second derivatives
+// continuous between the end of the last segment and the beginning of the
+// first.
+GTEST_TEST(testPiecewisePolynomial, CubicSplinePeriodicBoundaryConditionTest) {
+  Eigen::VectorXd breaks(5);
+  breaks << 0, 1, 2, 3, 4;
+
+  // Spline in 3d.
+  Eigen::MatrixXd knots(3,5);
+  knots << 1, 1, 1,
+        2, 2, 2,
+        0, 3, 3,
+        -2, 2, 2,
+        1, 1, 1;
+
+  PiecewisePolynomial<double> periodic_spline =
+      PiecewisePolynomial<double>::Cubic(breaks, knots, true);
+
+  std::unique_ptr<Trajectory<double>> spline_dt =
+      periodic_spline.MakeDerivative(1);
+  std::unique_ptr<Trajectory<double>> spline_ddt =
+      periodic_spline.MakeDerivative(2);
+
+  Eigen::VectorXd begin_dt = spline_dt->value(breaks(0));
+  Eigen::VectorXd end_dt = spline_dt->value(breaks(breaks.size() - 1));
+
+  Eigen::VectorXd begin_ddt = spline_ddt->value(breaks(0));
+  Eigen::VectorXd end_ddt = spline_ddt->value(breaks(breaks.size() - 1));
+
+
+  Eigen::VectorXd dt_diff = end_dt - begin_dt;
+  Eigen::VectorXd ddt_diff = end_ddt - begin_ddt;
+
+  EXPECT_TRUE(dt_diff.lpNorm<Eigen::Infinity>() < 1e-8);
+  EXPECT_TRUE(ddt_diff.lpNorm<Eigen::Infinity>() < 1e-8);
+
+}
+
 GTEST_TEST(testPiecewisePolynomial, AllTests
 ) {
 testIntegralAndDerivative<double>();

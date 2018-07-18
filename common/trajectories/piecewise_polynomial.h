@@ -290,7 +290,8 @@ class PiecewisePolynomial final : public PiecewiseTrajectory<T> {
    */
   static PiecewisePolynomial<T> Cubic(
       const Eigen::Ref<const Eigen::VectorXd>& breaks,
-      const Eigen::Ref<const MatrixX<T>>& knots);
+      const Eigen::Ref<const MatrixX<T>>& knots,
+      const bool periodic_end_condition=false);
 
 
   /// Takes the derivative of this PiecewisePolynomial.
