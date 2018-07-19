@@ -19,7 +19,8 @@ using trajectories::PiecewisePolynomial;
 using Eigen::Vector3d;
 using Eigen::VectorXd;
 using systems::ContinuousState;
-
+using systems::AbstractValue;
+using systems::ContactResults;
 
 struct PolyWithKnots{
   PiecewisePolynomial<double> poly;
@@ -46,6 +47,7 @@ class MagicForce : public LeafSystem<double> {
     feedback = use_feedback;
     this->DeclareInputPort(systems::PortDataType::kVectorValued, 13);
     this->DeclareInputPort(systems::PortDataType::kVectorValued, 13);
+    this->DeclareAbstractInputPort();
     this->DeclareContinuousState(1);
     accel_multiplier = ball_mass + ball_inertia/(ball_radius*ball_radius);
   }
@@ -78,6 +80,13 @@ class MagicForce : public LeafSystem<double> {
     const BasicVector<double>* ball_pos = this->EvalVectorInput(context, 0);
     const VectorXd ball_pos_vec = ball_pos->CopyToVector();
 
+    const BasicVector<double>* manipulator_ball_pos = this->EvalVectorInput(context, 1);
+    const VectorXd manipulator_ball_pos_vec = manipulator_ball_pos->CopyToVector();
+
+    const ContactResults<double>* contact_results = this->EvalInputValue<ContactResults<double>>(context, 2);
+    VectorX<double> c_force = contact_results->get_generalized_contact_force();
+    c_force.topRows(1);
+
     double fx = 0;
     double fy = 0;
 
@@ -105,7 +114,6 @@ class MagicForce : public LeafSystem<double> {
         time = context.get_time() + time_offset;
       }
     }
-
 
     if (ballistic_phase) {
 
@@ -158,12 +166,12 @@ class MagicForce : public LeafSystem<double> {
 
 
     // Force directly to rolling ball.
-    //Vector3d ball_position = ball_vec.topRows(3);
+
     VectorXd ball_quat = ball_pos_vec.segment(3,4);
     Quaternion<double> ball_rot(ball_quat[0], ball_quat[1], ball_quat[2], ball_quat[3]);
     Quaternion<double> inv_ball_rot = ball_rot.conjugate();
 
-    Vector3d ball_force(fx,fy,1);
+    Vector3d ball_force(fx,fy,0);
     Vector3d ball_force_rot = inv_ball_rot._transformVector(ball_force);
 
     Eigen::VectorXd wrench(6);
@@ -172,9 +180,24 @@ class MagicForce : public LeafSystem<double> {
     plant_ptr_->set_wrench(wrench,1);
 
     // Force to manipulator ball.
+    VectorXd manipulator_ball_quat = manipulator_ball_pos_vec.segment(3,4);
+    Quaternion<double> manipulator_ball_rot(manipulator_ball_quat[0],
+                                manipulator_ball_quat[1],
+                                manipulator_ball_quat[2],
+                                manipulator_ball_quat[3]);
+    Quaternion<double> manipulator_inv_ball_rot = manipulator_ball_rot.conjugate();
 
+    const Vector3d offset(0,0,1);
+    const Vector3d grav_comp(0,0,ball_mass*9.81);
+    Vector3d manip_f = 10*(offset + ball_pos_vec.topRows(3) - manipulator_ball_pos_vec.topRows(3)) + 1*(ball_pos_vec.segment(10,3) - manipulator_ball_pos_vec.segment(10,3));
+    Vector3d manipulator_ball_force(manip_f);
+//    manipulator_ball_force.setZero();
+    Vector3d manipulator_ball_force_rot = manipulator_inv_ball_rot._transformVector(manipulator_ball_force);
 
-    //(*derivatives)(0) = 0;
+    Eigen::VectorXd manipulator_wrench(6);
+    manipulator_wrench.setZero();
+    manipulator_wrench.bottomRows(3) = manipulator_ball_force_rot;
+    plant_ptr_->set_wrench(manipulator_wrench,2);
   }
 };
 

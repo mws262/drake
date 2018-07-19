@@ -874,14 +874,24 @@ VectorX<T> RigidBodyPlant<T>::TransposedContactTangentJacobianMult(
   return result;
 }
 
-
+//template <typename T>
+//void RigidBodyPlant<T>::clear_wrenches(){
+//  no_external_wrenches.clear();
+//}
 
 template <typename T>
 void RigidBodyPlant<T>::set_wrench(Eigen::VectorXd& wrench, int body_idx) {
   const RigidBody<double>* bod = &this->get_rigid_body_tree().get_body(body_idx);
-  no_external_wrenches.clear();
-  auto p = std::make_pair(bod, wrench);
-  no_external_wrenches.insert(p);
+
+  if ( no_external_wrenches.find(bod) == no_external_wrenches.end() ) {
+    // not found
+    auto p = std::make_pair(bod, wrench);
+    no_external_wrenches.insert(p);
+  } else {
+    no_external_wrenches.at(bod) = wrench;
+  }
+
+
 }
 
 

@@ -48,7 +48,7 @@ using systems::ConstantVectorSource;
 
 DEFINE_double(cutsizethresh, 0.3, "won't cut if size is below this length (in seconds)");
 DEFINE_double(min_around_cut, 0.05, "");
-DEFINE_double(cutthresh, 10, "");
+DEFINE_double(cutthresh, 1, "");
 DEFINE_bool(feedback, false, "use feedback controls?");
 
 const char* ballModelPath = "drake/examples/iiwa_soccer/models/soccer_ball.urdf";
@@ -386,9 +386,6 @@ void SetupWorld() {
 //  builder.Connect(const_torque->get_output_port(), plant_ptr->get_input_port(0));
 
 
-
-
-
   DrakeVisualizer* visualizer = builder.AddSystem<DrakeVisualizer>(plant_ptr->get_rigid_body_tree(), &lcm);
   visualizer->set_name("main_vis");
 
@@ -399,7 +396,7 @@ void SetupWorld() {
 
   builder.Connect(plant_ptr->get_output_port(2), fext->get_input_port(0)); // Manipulated ball.
   builder.Connect(plant_ptr->get_output_port(3), fext->get_input_port(1)); // Manipulator ball.
-
+  builder.Connect(plant_ptr->contact_results_output_port(), fext->get_input_port(2));
   builder.Connect(plant_ptr->get_output_port(0), visualizer->get_input_port(0));
 
 
@@ -489,7 +486,11 @@ void SetupWorld() {
 
   plant_ptr->set_position(&context, 7, 2);
   plant_ptr->set_position(&context, 8, 2);
-  plant_ptr->set_position(&context, 9, 4);
+  plant_ptr->set_position(&context, 9, 0.071);
+//  plant_ptr->set_velocity(&context, 6, -vy0/0.07);
+//  plant_ptr->set_velocity(&context, 7, vx0/0.07);
+//  plant_ptr->set_velocity(&context, 9, vx0);
+//  plant_ptr->set_velocity(&context, 10, vy0);
 
   drake::log()->info(vx0);
   drake::log()->info(vy0);
