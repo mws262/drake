@@ -174,8 +174,25 @@ drake_cc_library(
     hdrs = ["magic_force.h"],
     visibility = ["//visibility:public"],
     deps = [
+        ":poly_utilities",
+        ":spline_distance_cost",
         "//common/trajectories",
         "//multibody/rigid_body_plant",
+        "//solvers",
+        "//systems/framework",
+        "//systems/primitives",
+    ],
+)
+
+drake_cc_library(
+    name = "spline_distance_cost",
+    srcs = ["spline_distance_cost.cc"],
+    hdrs = ["spline_distance_cost.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//common/trajectories",
+        "//multibody/rigid_body_plant",
+        "//solvers",
         "//systems/framework",
         "//systems/primitives",
     ],
@@ -234,9 +251,11 @@ drake_cc_binary(
         ":models",
     ],
     deps = [
+        "poly_utilities",
         ":arrows_to_lcm",
         ":magic_force",
         ":nonconstant_abstract_source",
+        ":spline_distance_cost",
         "//common:text_logging_gflags",
         "//lcm",
         "//multibody:rigid_body_tree",
@@ -245,9 +264,24 @@ drake_cc_binary(
         "//multibody/rigid_body_plant",
         "//multibody/rigid_body_plant:drake_visualizer",
         "//multibody/rigid_body_plant:frame_visualizer",
+        "//solvers",
         "//systems/analysis",
         "//systems/framework",
         "//systems/primitives",
+    ],
+)
+
+drake_cc_library(
+    name = "poly_utilities",
+    srcs = [
+        "poly_utilities.h",
+    ],
+    deps = [
+        "//common/trajectories:piecewise_polynomial",
+        "//common/trajectories:trajectory",
+        "//lcm",
+        "//multibody/rigid_body_plant:drake_visualizer",
+        "//multibody/rigid_body_plant:frame_visualizer",
     ],
 )
 
@@ -314,5 +348,17 @@ drake_cc_binary(
         "//systems/controllers:inverse_dynamics_controller",
         "//systems/primitives",
         "@lcmtypes_bot2_core",
+    ],
+)
+
+drake_cc_googletest(
+    name = "poly_utilities_test",
+    deps = [
+        ":poly_utilities",
+        "//common/test_utilities:eigen_matrix_compare",
+        "//common/test_utilities:expect_throws_message",
+        "//common/trajectories",
+        "//systems/framework",
+        "//systems/framework/test_utilities",
     ],
 )
